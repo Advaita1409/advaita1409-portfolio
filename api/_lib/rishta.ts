@@ -37,7 +37,7 @@ export async function deliverRishta(r: Rishta, via: "form" | "auntie-ji", inboxU
 }
 
 /** New guestbook note: tell the owner, with a private link to review it (when moderation storage is configured). */
-export async function deliverGuestbook(name: string, text: string, reviewUrl?: string, status: "pending" | "approved" | "rejected" = "pending", role = ""): Promise<void> {
+export async function deliverGuestbook(name: string, text: string, reviewUrl?: string, status: "pending" | "approved" | "rejected" = "pending", role = "", extra = ""): Promise<void> {
   const key = process.env.RESEND_API_KEY;
   const to = process.env.RISHTA_TO_EMAIL;
   if (!key || !to) throw new Error("Email delivery is not configured.");
@@ -48,7 +48,7 @@ export async function deliverGuestbook(name: string, text: string, reviewUrl?: s
     from: process.env.RISHTA_FROM_EMAIL ?? "Guestbook <onboarding@resend.dev>",
     to,
     subject: status === "approved" ? "New guestbook note is live on your site" : "New guestbook note awaiting approval",
-    html: `<p><b>${esc(name)}</b>${role ? ` (${esc(role)})` : ""} wrote:</p><p style="white-space:pre-wrap">${esc(text)}</p>${how}`,
+    html: `<p><b>${esc(name)}</b>${role ? ` (${esc(role)})` : ""} wrote:</p><p style="white-space:pre-wrap">${esc(text)}</p>${extra ? `<p><small>${esc(extra)}</small></p>` : ""}${how}`,
     text: `${name}${role ? ` (${role})` : ""} wrote:\n\n${text}\n\n${reviewUrl ? "Review it: " + reviewUrl : "To publish it, add it to src/data/guestbook.json and redeploy."}`,
   });
   if (error) throw new Error("Email provider rejected the message.");

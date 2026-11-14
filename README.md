@@ -27,6 +27,16 @@ npm run build
 - **Your private inbox page:** every email contains a link to `/api/guestbook?review=<token>` showing all contact messages (with a Reply link) and all guestbook notes (Approve / Remove from site). The token comes from `MODERATION_SECRET`; change that value to revoke the link.
 - Without Upstash configured: messages are emailed only, and guestbook notes are not shown on the site.
 
+## Optional: "Sign in with Google" on the guestbook
+
+Visitors can sign in with Google so their note shows a verified name and their real profile photo (a green tick). Their email is stored privately (visible only on your inbox page) and never shown publicly. It switches on when you set a Google Client ID:
+
+1. Open https://console.cloud.google.com/apis/credentials, create a project if asked, set up the OAuth consent screen (External, app name "Advaita Sharma portfolio", your email).
+2. Create credentials, OAuth client ID, type **Web application**. Under *Authorized JavaScript origins* add `https://advaita-sharma.vercel.app` and `http://localhost:5173`.
+3. Copy the Client ID and put the same value in `GOOGLE_CLIENT_ID` and `VITE_GOOGLE_CLIENT_ID` (in `.env` and in Vercel), then redeploy.
+
+Without a Client ID the guestbook simply works without the Google button.
+
 ## Where things live
 
 - `src/data/site.ts`: all content and the photo list. `null` values show a "to be added" comment.

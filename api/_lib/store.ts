@@ -5,7 +5,7 @@
  */
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-export type Note = { id: string; name: string; role?: string; text: string; ts: number; status: "pending" | "approved" | "rejected" };
+export type Note = { id: string; name: string; role?: string; photo?: string; verified?: boolean; email?: string; text: string; ts: number; status: "pending" | "approved" | "rejected" };
 
 export const storeConfigured = () => !!(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN && process.env.MODERATION_SECRET);
 

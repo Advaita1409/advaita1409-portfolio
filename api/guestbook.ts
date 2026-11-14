@@ -14,6 +14,21 @@ function looksSuspicious(text: string, name: string): boolean {
   return /https?:|www\.|\.(com|net|org|io|ru|cn|xyz|top)\b|@\w+\.\w+/i.test(t) || BAD_WORDS.test(t) || /(.)\1{9,}/.test(t) || (text.length > 25 && text === text.toUpperCase());
 }
 
+/** Verifies a "Sign in with Google" ID token with Google itself. Returns the verified profile or null. */
+async function verifyGoogle(credential: string): Promise<{ name: string; email: string; photo?: string } | null> {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  if (!clientId || credential.length > 4000) return null;
+  try {
+    const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`);
+    if (!res.ok) return null;
+    const t = (await res.json()) as { aud?: string; email?: string; email_verified?: string | boolean; name?: string; picture?: string; exp?: string };
+    if (t.aud !== clientId || !t.email || !(t.email_verified === true || t.email_verified === "true")) return null;
+    if (t.exp && Number(t.exp) * 1000 < Date.now()) return null;
+    const photo = t.picture && /^https:\/\/[a-z0-9-]+\.googleusercontent\.com\//i.test(t.picture) ? t.picture : undefined;
+    return { name: (t.name ?? t.email.split("@")[0]).slice(0, 40), email: t.email, photo };
+  } catch { return null; }
+}
+
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 const html = (body: string, status = 200) =>
   new Response(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Inbox and guestbook</title>
@@ -27,7 +42,7 @@ export async function GET(request: Request): Promise<Response> {
   if (review !== null) {
     if (!validToken(review)) return html("<h1>Not found</h1>", 404);
     const [notes, msgs] = await Promise.all([latestNotes(100), latestMessages(100)]);
-    const card = (n: Note) => `<section><b>${esc(n.name)}</b>${n.role ? ` <small>(${esc(n.role)})</small>` : ""} <small>${new Date(n.ts).toUTCString()} · ${n.status}</small><p>${esc(n.text)}</p>
+    const card = (n: Note) => `<section><b>${esc(n.name)}</b>${n.role ? ` <small>(${esc(n.role)})</small>` : ""}${n.verified ? ` <small>✔ Google: ${esc(n.email ?? "")}</small>` : ""}${n.photo ? ` <img src="${esc(n.photo)}" alt="" width="28" height="28" style="border-radius:50%;vertical-align:middle" referrerpolicy="no-referrer">` : ""} <small>${new Date(n.ts).toUTCString()} · ${n.status}</small><p>${esc(n.text)}</p>
       <form method="post" action="/api/guestbook"><input type="hidden" name="token" value="${esc(review)}"><input type="hidden" name="id" value="${esc(n.id)}">
       ${n.status !== "approved" ? '<button name="action" value="approve">Approve</button>' : ""}${n.status !== "rejected" ? '<button class="no" name="action" value="reject">Remove from site</button>' : ""}</form></section>`;
     const pending = notes.filter((n) => n.status === "pending");
@@ -40,7 +55,7 @@ export async function GET(request: Request): Promise<Response> {
   }
   if (!storeConfigured()) return json({ notes: [], configured: false });
   try {
-    const notes = (await latestNotes(100)).filter((n) => n.status === "approved").map(({ name, role, text, ts }) => ({ name, role, text, ts }));
+    const notes = (await latestNotes(100)).filter((n) => n.status === "approved").map(({ name, role, photo, verified, text, ts }) => ({ name, role, photo, verified, text, ts }));
     return new Response(JSON.stringify({ notes, configured: true }), { headers: { "content-type": "application/json", "cache-control": "public, max-age=10, s-maxage=15, stale-while-revalidate=60" } });
   } catch (e) {
     console.error("guestbook list failed:", e instanceof Error ? e.message : "unknown");
@@ -62,7 +77,14 @@ export async function POST(request: Request): Promise<Response> {
   let body: Record<string, unknown>;
   try { body = await request.json(); } catch { return json({ error: "Invalid request." }, 400); }
   if (typeof body.website === "string" && body.website.trim() !== "") return json({ ok: true, status: "pending" }); // honeypot
-  const name = String(body.name ?? "").trim();
+  let name = String(body.name ?? "").trim();
+  const credential = typeof body.credential === "string" ? body.credential : "";
+  let google: Awaited<ReturnType<typeof verifyGoogle>> = null;
+  if (credential) {
+    google = await verifyGoogle(credential);
+    if (!google) return json({ error: "Google sign-in could not be verified. Please try again or write your note without it." }, 400);
+    name = google.name;
+  }
   const text = String(body.text ?? "").trim();
   const role = String(body.role ?? "").trim();
   if (role.length > 80) return json({ error: "Position must be 80 characters or fewer." }, 400);
@@ -74,10 +96,10 @@ export async function POST(request: Request): Promise<Response> {
     let reviewUrl: string | undefined;
     if (storeConfigured()) {
       status = autoPublish() && !looksSuspicious(text, `${name} ${role}`) ? "approved" : "pending";
-      await addNote({ id: randomUUID(), name, ...(role ? { role } : {}), text, ts: Date.now(), status });
+      await addNote({ id: randomUUID(), name, ...(role ? { role } : {}), ...(google ? { verified: true, email: google.email, ...(google.photo ? { photo: google.photo } : {}) } : {}), text, ts: Date.now(), status });
       reviewUrl = `${origin(request)}/api/guestbook?review=${reviewToken()}`;
     }
-    try { await deliverGuestbook(name, text, reviewUrl, status, role); }
+    try { await deliverGuestbook(name, text, reviewUrl, status, role, google ? `Verified with Google: ${google.email}` : ""); }
     catch (e) { if (!reviewUrl) throw e; console.error("guestbook email failed (note is saved):", e instanceof Error ? e.message : "unknown"); }
     return json({ ok: true, status });
   } catch (e) {
