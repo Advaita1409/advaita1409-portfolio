@@ -4,11 +4,10 @@ import { deliverGuestbook } from "./_lib/rishta.js";
 import { addNote, latestMessages, latestNotes, reviewToken, setStatus, storeConfigured, validToken, type Note } from "./_lib/store.js";
 
 /**
- * GUESTBOOK_MODE=instant (default): a note goes live straight away, unless it looks suspicious
- *   (links, blocked words, shouting, repeated characters), in which case it is held for review.
- * GUESTBOOK_MODE=approval: every note waits for you to approve it on the private review page.
+ * Default: every note waits for you to approve it (inbox page) before it appears on the site.
+ * Set GUESTBOOK_AUTO_PUBLISH=true to let notes go live at once (suspicious ones are still held).
  */
-const mode = () => (process.env.GUESTBOOK_MODE === "approval" ? "approval" : "instant");
+const autoPublish = () => process.env.GUESTBOOK_AUTO_PUBLISH === "true";
 const BAD_WORDS = /\b(fuck|shit|bitch|asshole|bastard|slut|dick|porn|casino|viagra|crypto|loan)\b/i;
 function looksSuspicious(text: string, name: string): boolean {
   const t = `${name} ${text}`;
@@ -72,7 +71,7 @@ export async function POST(request: Request): Promise<Response> {
     let status: Note["status"] = "pending";
     let reviewUrl: string | undefined;
     if (storeConfigured()) {
-      status = mode() === "instant" && !looksSuspicious(text, name) ? "approved" : "pending";
+      status = autoPublish() && !looksSuspicious(text, name) ? "approved" : "pending";
       await addNote({ id: randomUUID(), name, text, ts: Date.now(), status });
       reviewUrl = `${origin(request)}/api/guestbook?review=${reviewToken()}`;
     }

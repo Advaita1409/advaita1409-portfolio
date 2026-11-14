@@ -18,12 +18,12 @@ npm run build
 | `RISHTA_FROM_EMAIL` | same | sender on a Resend-verified domain |
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | `/api/guestbook` | optional free Redis (upstash.com) that stores guestbook notes |
 | `MODERATION_SECRET` | `/api/guestbook` | any long random string; protects your private inbox link |
-| `GUESTBOOK_MODE` | `/api/guestbook` | `instant` (default) or `approval` |
+| `GUESTBOOK_AUTO_PUBLISH` | `/api/guestbook` | `true` to publish notes instantly; default is approval |
 
 ## What happens to messages
 
 - **Contact form ("Let's talk")** → emailed to `RISHTA_TO_EMAIL` through Resend with the visitor as Reply-To (just hit **Reply**), and, when Upstash is configured, also archived in your private inbox page.
-- **"Things people say about me"** (guestbook, in the Life section) → saved in Upstash Redis and shown on the site **straight away** (`GUESTBOOK_MODE=instant`, the default). Notes that look suspicious (links, blocked words, all-caps, repeated characters) are held for your approval instead. Set `GUESTBOOK_MODE=approval` to approve every note yourself.
+- **"Things people say about me"** (guestbook, in the Life section) → saved in Upstash Redis and held until **you approve it** on your private inbox page (the default). Set `GUESTBOOK_AUTO_PUBLISH=true` to publish notes straight away; suspicious ones (links, blocked words, all-caps, repeated characters) are still held.
 - **Your private inbox page:** every email contains a link to `/api/guestbook?review=<token>` showing all contact messages (with a Reply link) and all guestbook notes (Approve / Remove from site). The token comes from `MODERATION_SECRET`; change that value to revoke the link.
 - Without Upstash configured: messages are emailed only, and guestbook notes are not shown on the site.
 
