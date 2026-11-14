@@ -27,7 +27,7 @@ export async function GET(request: Request): Promise<Response> {
   if (review !== null) {
     if (!validToken(review)) return html("<h1>Not found</h1>", 404);
     const [notes, msgs] = await Promise.all([latestNotes(100), latestMessages(100)]);
-    const card = (n: Note) => `<section><b>${esc(n.name)}</b> <small>${new Date(n.ts).toUTCString()} · ${n.status}</small><p>${esc(n.text)}</p>
+    const card = (n: Note) => `<section><b>${esc(n.name)}</b>${n.role ? ` <small>(${esc(n.role)})</small>` : ""} <small>${new Date(n.ts).toUTCString()} · ${n.status}</small><p>${esc(n.text)}</p>
       <form method="post" action="/api/guestbook"><input type="hidden" name="token" value="${esc(review)}"><input type="hidden" name="id" value="${esc(n.id)}">
       ${n.status !== "approved" ? '<button name="action" value="approve">Approve</button>' : ""}${n.status !== "rejected" ? '<button class="no" name="action" value="reject">Remove from site</button>' : ""}</form></section>`;
     const pending = notes.filter((n) => n.status === "pending");
@@ -40,7 +40,7 @@ export async function GET(request: Request): Promise<Response> {
   }
   if (!storeConfigured()) return json({ notes: [], configured: false });
   try {
-    const notes = (await latestNotes(100)).filter((n) => n.status === "approved").map(({ name, text, ts }) => ({ name, text, ts }));
+    const notes = (await latestNotes(100)).filter((n) => n.status === "approved").map(({ name, role, text, ts }) => ({ name, role, text, ts }));
     return new Response(JSON.stringify({ notes, configured: true }), { headers: { "content-type": "application/json", "cache-control": "public, max-age=10, s-maxage=15, stale-while-revalidate=60" } });
   } catch (e) {
     console.error("guestbook list failed:", e instanceof Error ? e.message : "unknown");
@@ -64,6 +64,8 @@ export async function POST(request: Request): Promise<Response> {
   if (typeof body.website === "string" && body.website.trim() !== "") return json({ ok: true, status: "pending" }); // honeypot
   const name = String(body.name ?? "").trim();
   const text = String(body.text ?? "").trim();
+  const role = String(body.role ?? "").trim();
+  if (role.length > 80) return json({ error: "Position must be 80 characters or fewer." }, 400);
   if (name.length < 1 || name.length > 40) return json({ error: "Name is required (max 40 characters)." }, 400);
   if (text.length < 3 || text.length > 200) return json({ error: "Note must be 3 to 200 characters." }, 400);
 
@@ -71,11 +73,11 @@ export async function POST(request: Request): Promise<Response> {
     let status: Note["status"] = "pending";
     let reviewUrl: string | undefined;
     if (storeConfigured()) {
-      status = autoPublish() && !looksSuspicious(text, name) ? "approved" : "pending";
-      await addNote({ id: randomUUID(), name, text, ts: Date.now(), status });
+      status = autoPublish() && !looksSuspicious(text, `${name} ${role}`) ? "approved" : "pending";
+      await addNote({ id: randomUUID(), name, ...(role ? { role } : {}), text, ts: Date.now(), status });
       reviewUrl = `${origin(request)}/api/guestbook?review=${reviewToken()}`;
     }
-    try { await deliverGuestbook(name, text, reviewUrl, status); }
+    try { await deliverGuestbook(name, text, reviewUrl, status, role); }
     catch (e) { if (!reviewUrl) throw e; console.error("guestbook email failed (note is saved):", e instanceof Error ? e.message : "unknown"); }
     return json({ ok: true, status });
   } catch (e) {

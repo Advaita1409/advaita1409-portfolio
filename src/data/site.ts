@@ -167,7 +167,7 @@ export const education: { id: string; school: string; degree: string; when: stri
 ];
 
 /** ✏️ Optional hand-picked quotes shown before visitors' guestbook notes in "Things people say about me". */
-export const peopleSay: { name: string; text: string }[] = [];
+export const peopleSay: { name: string; role?: string; text: string }[] = [];
 
 export type ActivityImage = { src: string; alt: string; w: number; h: number; label: string };
 export type Activity = { id: string; group: "run" | "dance" | "surf"; title: string; org: string; when: string; detail: string; images: ActivityImage[] };

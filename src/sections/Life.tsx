@@ -11,7 +11,7 @@ const groups: { id: Activity["group"]; title: string; icon: IconName; blurb: str
   { id: "surf", title: "Surfing", icon: "wave", blurb: "A three-day course on the waves." },
 ];
 
-type Note = { name: string; text: string };
+type Note = { name: string; role?: string; text: string };
 
 const H3 = ({ icon, children }: { icon: IconName; children: React.ReactNode }) => (
   <h3 className="display text-2xl md:text-3xl flex items-center gap-3">
@@ -35,10 +35,10 @@ function PeopleSay() {
     const d = new FormData(form);
     setState("sending"); setErr("");
     try {
-      const res = await fetch("/api/guestbook", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: d.get("name"), text: d.get("text"), website: d.get("website") }) });
+      const res = await fetch("/api/guestbook", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: d.get("name"), role: d.get("role"), text: d.get("text"), website: d.get("website") }) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Something went wrong.");
-      if (data.status === "approved") { setLive((l) => [{ name: String(d.get("name")), text: String(d.get("text")) }, ...l]); setState("live"); }
+      if (data.status === "approved") { setLive((l) => [{ name: String(d.get("name")), role: String(d.get("role") ?? "").trim() || undefined, text: String(d.get("text")) }, ...l]); setState("live"); }
       else setState("held");
       form.reset();
     } catch (x) { setErr(x instanceof Error ? x.message : "Something went wrong."); setState("idle"); }
@@ -55,6 +55,7 @@ function PeopleSay() {
         ) : (
           <form onSubmit={submit} className="relative mt-5 space-y-3">
             <div><label htmlFor="g-name" className="mono block mb-1.5 text-[var(--ink-soft)]">Name</label><input id="g-name" name="name" required maxLength={40} autoComplete="name" className="field" /></div>
+            <div><label htmlFor="g-role" className="mono block mb-1.5 text-[var(--ink-soft)]">Current position (optional, adds credibility)</label><input id="g-role" name="role" maxLength={80} autoComplete="organization-title" placeholder="e.g. Engineering Manager, Company" className="field" /></div>
             <div><label htmlFor="g-text" className="mono block mb-1.5 text-[var(--ink-soft)]">Your note (max 200 characters)</label><textarea id="g-text" name="text" required minLength={3} maxLength={200} rows={3} className="field" /></div>
             <div aria-hidden="true" className="absolute -left-[9999px] h-0 overflow-hidden"><label>Website<input name="website" tabIndex={-1} autoComplete="off" /></label></div>
             {err && <p role="alert" className="font-medium text-[var(--accent)]">{err}</p>}
@@ -71,7 +72,7 @@ function PeopleSay() {
               <li key={`${n.name}-${i}`} className="spot card p-5 flex flex-col justify-between hover:border-[var(--accent)] transition-colors">
                 <span className="spot-line" aria-hidden="true" />
                 <p className="text-lg leading-snug">“{n.text}”</p>
-                <p className="mono mt-4 text-[var(--accent)]">— {n.name}</p>
+                <p className="mono mt-4 text-[var(--accent)]">— {n.name}</p>{n.role && <p className="text-sm text-[var(--ink-soft)]">{n.role}</p>}
               </li>
             ))}
           </ul>
