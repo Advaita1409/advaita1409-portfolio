@@ -11,7 +11,7 @@ export const identity = {
   location: "Bangalore, India",
   hero:
     "I'm Advaita Sharma, a software developer specializing in IoT and game development, driven to create impactful and user-centered digital solutions.",
-  cvUrl: "https://drive.google.com/file/d/1E6CUEdxTId8Uwo9lT_qWLk7NED06JW43/view?usp=sharing",
+  cvUrl: "/assets/Advaita_Sharma_Resume.pdf",
   timeZone: "Asia/Kolkata",
 };
 

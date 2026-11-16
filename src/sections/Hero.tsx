@@ -4,7 +4,6 @@ import { useReducedMotion } from "../lib/ui";
 import { UiIcon, type IconName } from "../components/UiIcon";
 import { OrgLogo } from "../components/Logo";
 
-const ext = { target: "_blank", rel: "noopener noreferrer" } as const;
 
 const stats: [string, string, IconName][] = [
   ["award", "STAR Award, Maersk · 25 Jun 2026", "award"],
@@ -58,7 +57,7 @@ export default function Hero() {
             <p className="mt-7 max-w-xl text-lg md:text-xl text-[var(--ink-soft)]">{identity.hero}</p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <a href="#projects" className="btn pink">View projects <span aria-hidden="true">→</span></a>
-              <a href={identity.cvUrl} {...ext} className="btn" aria-label="Download CV (opens in new tab)">Download CV</a>
+              <a href={identity.cvUrl} download="Advaita_Sharma_Resume.pdf" className="btn" aria-label="Download CV as PDF">Download CV</a>
               <a href="#contact" className="btn">Contact</a>
             </div>
           </div>
